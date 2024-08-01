@@ -81,3 +81,15 @@ UPDATE matches
         SET matches.team_2_id = teams.team_id;
 
 CREATE INDEX idx_matchID ON matches (matchID);
+
+UPDATE matches
+SET winner = TRIM(
+    REGEXP_SUBSTR(outcome, '(?:\\()?(.*?)(?= won)')
+);
+
+CREATE TABLE IF NOT EXISTS winners (
+    matchID BIGINT,
+    team_1 TEXT,
+    team_2 TEXT,
+    winner TEXT
+);

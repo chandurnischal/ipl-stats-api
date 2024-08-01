@@ -9,8 +9,8 @@ def main():
     print("Extracting match data...")
     os.system("python extraction/scraper.py")
 
-    print("Preprocessing data...")
-    os.system("python extraction/query.py")
+    # print("Preprocessing data...")
+    # os.system("python extraction/query.py")
 
 if __name__ == '__main__':
     start = perf_counter()

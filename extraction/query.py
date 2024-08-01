@@ -1,4 +1,5 @@
 import re
+import pandas as pd
 import json
 from tqdm import tqdm
 import mysql.connector as mc
@@ -14,6 +15,30 @@ def extractQueries(file_path):
 
     return queries
 
+def getAbbreviations(string:str) -> str:
+    string = re.sub(r"\(.+", "", string)
+    string = string.strip()
+
+    return "".join([word[0] for word in string.split(' ')])
+
+def updateWithAbbrev(row):
+    if row["winner"] == None:
+        return row["winner"]
+    if row["team_1_abbrev"] in row["winner"]:
+        return row["team_1"]
+    if row["team_2_abbrev"] in row["winner"]:
+        return row["team_2"]
+    return row["winner"]
+
+def updateWithNames(row):
+    if row["winner"] == None:
+        return row["winner"]
+    if row["winner"] in row["team_1"]:
+        return row["team_1"]
+    if row["winner"] in row["team_2"]:
+        return row["team_2"]
+    return row["winner"]
+
 matches = extractQueries("extraction/matches.sql")
 batting = extractQueries("extraction/batting.sql")
 bowling = extractQueries("extraction/bowling.sql")
@@ -28,18 +53,41 @@ with mc.connect(**creds) as conn:
 
     conn.autocommit = True
 
-    print("Processing matches...")
-    for query in tqdm(matches):
+    for query in tqdm(matches, desc="Processing matches..."):
         cursor.execute(query)
 
-    print("Processing batting...")
-    for query in tqdm(batting):
+    cursor.execute("SELECT matchID, team_1, team_2, winner FROM matches")
+    rows = cursor.fetchall()
+
+    data = pd.DataFrame(rows, columns=['matchID', 'team_1', 'team_2', 'winner'])
+
+    data['winner'] = data['winner'].str.replace(r'.+\(', '', regex=True).str.strip()
+    data = data.replace("Guj Lions", "Gujarat Lions")
+    data = data.replace("Supergiants", "Supergiant")
+    data = data.replace("PBKS", "Punjab")
+    data = data.replace("SRH", "SH")
+
+
+    data["team_1_abbrev"] = data["team_1"].apply(getAbbreviations)
+    data["team_2_abbrev"] = data["team_2"].apply(getAbbreviations)
+    data["winner"] = data.apply(updateWithAbbrev, axis=1)
+    data["winner"] = data.apply(updateWithNames, axis=1)
+
+    data = data[["matchID", "team_1", "team_2", "winner"]]
+
+    insertStatement = """
+    INSERT INTO winners (matchID, team_1, team_2, winner) VALUES (%s, %s, %s, %s)
+    """
+    
+    for index, row in tqdm(data.iterrows(), total=data.shape[0], desc="Inserting winners..."):
+        cursor.execute(insertStatement, (row['matchID'], row["team_1"], row["team_2"], row["winner"])) 
+
+
+    for query in tqdm(batting, desc="Processing batting..."):
         cursor.execute(query)
 
-    print("Processing bowling...")
-    for query in tqdm(bowling):
+    for query in tqdm(bowling, desc="Processing bowling..."):
         cursor.execute(query)
 
-    print("Processing scores and extras...")
-    for query in tqdm(others):
+    for query in tqdm(others, desc="Processing scores and extras"):
         cursor.execute(query)

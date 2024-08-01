@@ -148,7 +148,7 @@ def extractExtras(batting: pd.DataFrame) -> dict:
 
     extras = dict()
     extras["team"] = extra["team"]
-    byesPattern = re.compile(r"b\s*(\d+)", re.I)
+    byesPattern = re.compile(r"\(b\s*(\d+)", re.I)
     legByesPattern = re.compile(r"lb\s*(\d+)", re.I)
     widePattern = re.compile(r"w\s*(\d+)", re.I)
     noballPattern = re.compile(r"nb\s*(\d+)", re.I)
@@ -261,4 +261,3 @@ def testScorecard(url:str) -> None:
 
     for s in scorecard:
         print(scorecard[s])
-        break
