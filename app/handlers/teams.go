@@ -20,8 +20,7 @@ func TeamsHandler(ctx *fiber.Ctx) error {
 	intSeason, err := strconv.Atoi(season)
 
 	if err != nil {
-		team, err := teams.GetAllTimeData(name)
-
+		team, err := teams.GetAllTimeStats(name)
 		if err != nil {
 			return ctx.JSON(fiber.Map{
 				"success": false,
@@ -34,8 +33,7 @@ func TeamsHandler(ctx *fiber.Ctx) error {
 		})
 	}
 
-	team, err := teams.GetSeasonData(name, intSeason)
-
+	team, err := teams.GetSeasonStats(name, intSeason)
 	if err != nil {
 		return ctx.JSON(fiber.Map{
 			"success": false,

@@ -1,55 +1,68 @@
 package teams
 
 type Team struct {
-	TeamID                int         `json:"id"`
-	TeamName              string      `json:"team"`
-	Season                int         `json:"season"`
-	Matches               Matches     `json:"matches"`
-	Appearances           Appearances `json:"playoffs"`
-	Stats                 Stats       `json:"stats"`
-	IndiviudalPerformance Indiviudal  `json:"individualPerformance"`
+	TeamID               int                `json:"id"`
+	TeamName             string             `json:"name"`
+	Season               int                `json:"season"`
+	Stadium              string             `json:"stadium"`
+	TeamHistory          History            `json:"history"`
+	TeamMatchRecord      MatchRecord        `json:"matchRecord"`
+	TeamPerformanceStats PerformanceStats   `json:"performanceStats"`
+	PlayerAchievements   PlayerAchievements `json:"playerAchievements"`
 }
 
-type Matches struct {
-	Played            int     `json:"played"`
-	Won               int     `json:"won"`
-	Lost              int     `json:"lost"`
-	Tied              int     `json:"tied"`
-	NoResult          int     `json:"noResult"`
-	BattingFirstPerc  float32 `json:"firstBatWinPerc"`
-	FieldingFirstPerc float32 `json:"firstFieldWinPerc"`
-	WinPercentage     float32 `json:"winPerc"`
-}
-
-type Appearances struct {
-	Played        int `json:"seasonPlayed"`
-	Appearances   int `json:"playoffAppearances"`
-	Finals        int `json:"finalAppearances"`
+type History struct {
+	Seasons       int `json:"seasons"`
+	Playoffs      int `json:"playoffs"`
+	Finals        int `json:"finals"`
 	Championships int `json:"championships"`
 }
 
-type Stats struct {
-	HighestScore   string  `json:"highestScore"`
-	LowestScore    string  `json:"lowestScore"`
-	AverageRuns    float32 `json:"averageRuns"`
-	AverageWickets float32 `json:"averageWickets"`
-	TotalRuns      int     `json:"totalRuns"`
-	TotalWickets   int     `json:"totalWickets"`
+type MatchRecord struct {
+	Played   int `json:"played"`
+	Won      int `json:"won"`
+	Lost     int `json:"lost"`
+	NoResult int `json:"noresult"`
+	Tied     int `json:"tied"`
 }
 
-type TopRunScorer struct {
-	Name string `json:"name"`
-	Runs int    `json:"runs"`
+type PerformanceStats struct {
+	TotalRuns      int           `json:"totalRuns"`
+	TotalWickets   int           `json:"totalWickets"`
+	AverageRuns    int           `json:"avgRuns"`
+	AverageWickets int           `json:"avgWickets"`
+	HighestScore   string        `json:"highestScore"`
+	BestBowling    string        `json:"bestBowling"`
+	WinPerc        WinPercentage `json:"winPercentage"`
 }
 
-type TopWicketTaker struct {
-	Name    string `json:"name"`
-	Wickets int    `json:"wickets"`
+type WinPercentage struct {
+	Overall       float32 `json:"overall"`
+	BatFirst      float32 `json:"batFirst"`
+	FieldFirst    float32 `json:"fieldFirst"`
+	Last5Matches  string  `json:"lastFiveMatches"`
+	Last10Matches string  `json:"lastTenMatches"`
 }
 
-type Indiviudal struct {
-	BestBatting    string         `json:"bestBatting"`
-	BestBowling    string         `json:"bestBowling"`
-	TopRunScorer   TopRunScorer   `json:"topRunScorer"`
-	TopWicketTaker TopWicketTaker `json:"topWicketTaker"`
+type PlayerAchievements struct {
+	TopScorer struct {
+		Player  string `json:"player"`
+		Score   string `json:"score"`
+		Against string `json:"against"`
+		Year    int    `json:"year"`
+	} `json:"topScorerInAMatch"`
+	TopBowler struct {
+		Player  string `json:"player"`
+		Figure  string `json:"bowlingFigure"`
+		Against string `json:"against"`
+		Year    int    `json:"year"`
+	} `json:"topBowlerInAMatch"`
+	MostCenturies struct {
+		Player    string `json:"player"`
+		Centuries int    `json:"centuries"`
+	} `json:"mostCenturies"`
+	MostWickets struct {
+		Player  string `json:"player"`
+		Wickets int    `json:"wickets"`
+	} `json:"mostWickets"`
 }

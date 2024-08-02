@@ -28,7 +28,7 @@ def pushToDB(data:pd.DataFrame, tablename:str) -> None:
     data.to_sql(name=tablename, con=engine, if_exists="append", index=False)
 
 
-with open("extraction/failed.txt") as file:
+with open("extraction/matches.txt") as file:
     urls = file.readlines()
 
 

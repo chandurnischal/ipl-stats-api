@@ -6,99 +6,103 @@ import (
 	"ipl-api/database"
 )
 
-func GetAllTimeMatches(id int, db *sql.DB) (Matches, error) {
+func GetAllTimeHistory(id int, db *sql.DB) (History, error) {
 	query := fmt.Sprintf(`
-	SELECT *, ROUND((won * 100) / played, 2) AS winPerc
+	SELECT * 
 	FROM
+	(SELECT COUNT(DISTINCT season) played FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d))) AS a
+	JOIN
+	(SELECT COUNT(DISTINCT season) playoffs FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) AND match_type NOT LIKE '%%match%%') AS b
+	JOIN
+	(SELECT COUNT(DISTINCT season) finals FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) AND match_type LIKE 'Final%%') AS c
+	JOIN
+	(SELECT COUNT(DISTINCT season) championships FROM matches WHERE winner_id=%d AND match_type LIKE 'Final%%') AS d;
+	`, id, id,
+		id, id,
+		id, id,
+		id,
+	)
+
+	return GetTeamHistory(query, db)
+
+}
+
+func GetAllTimeMatchRecord(id int, db *sql.DB) (MatchRecord, error) {
+	query := fmt.Sprintf(`
+	SELECT * 
+	FROM 
 	(SELECT COUNT(*) played FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d))) AS a
-	JOIN
-	(SELECT COUNT(*) won FROM matches WHERE winner_id=%d) AS b
-	JOIN
-	(SELECT COUNT(*) lost FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) AND winner_id!=%d AND winner_id !=-1 AND winner_id IS NOT NULL) AS c
-	JOIN
-	(SELECT COUNT(*) tied FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) AND winner_id=-1) AS d
-	JOIN
-	(SELECT COUNT(*) nr FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) AND winner_id IS NULL) AS e
-	JOIN
-	(SELECT ROUND(won * 100 / (won + lost), 2) firstBatWinPerc FROM (SELECT COUNT(*) AS won FROM scores WHERE innings=1 AND team_id=%d AND winner=1) AS w JOIN (SELECT COUNT(*) AS lost FROM scores WHERE innings=1 AND team_id=%d AND winner=0) AS l) AS f
-	JOIN
-	(SELECT ROUND(won * 100 / (won + lost), 2) firstFieldWinPerc FROM (SELECT COUNT(*) AS won FROM scores WHERE innings=2 AND team_id=%d AND winner=1) AS w JOIN (SELECT COUNT(*) AS lost FROM scores WHERE innings=2 AND team_id=%d AND winner=0) AS l) AS g;
+	JOIN    
+	(SELECT count(*) won FROM matches WHERE winner_id=%d) AS b
+	JOIN    
+	(SELECT count(*) lost FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) AND winner_id != %d) AS c
+	JOIN    
+	(SELECT count(*) nOResult FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) AND outcome LIKE '%%abandoned%%') AS d
+	JOIN    
+	(SELECT count(*) tied FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) AND outcome LIKE '%%tied%%') AS e;
 	`, id, id,
 		id,
 		id, id, id,
 		id, id,
 		id, id,
-		id, id,
-		id, id)
+	)
 
-	return GetMatches(query, db)
-
+	return GetTeamMatchRecord(query, db)
 }
 
-func GetAllTimeAppearances(id int, db *sql.DB) (Appearances, error) {
+func GetAllTimePerformanceStats(id int, db *sql.DB) (PerformanceStats, error) {
 	query := fmt.Sprintf(`
 	SELECT * 
 	FROM
-	(SELECT COUNT(DISTINCT season) played FROM matches WHERE team_1_id=%d) as a
+	(SELECT SUM(total) totalRuns, SUM(wickets) totalWickets, ROUND(AVG(total)) avgRuns, ROUND(AVG(wickets)) avgWickets FROM scores WHERE team_id=%d) AS a
 	JOIN
-	(SELECT COUNT(DISTINCT season) appearances FROM matches WHERE match_type NOT LIKE '%%match%%' AND ((team_1_id=%d) OR (team_2_id=%d))) AS b
+	(SELECT CONCAT(a.total, '/', a.wickets, ' (', a.overs, ' ov)', ' vs.', b.team) highestScore FROM (SELECT matchID, total, wickets, overs FROM scores WHERE team_id=%d) AS a JOIN (SELECT matchID, team FROM scores WHERE team_id != %d) AS b on a.matchID=b.matchID ORDER BY a.total DESC, a.wickets ASC LIMIT 1) AS b
 	JOIN
-	(SELECT COUNT(DISTINCT season) finals FROM matches WHERE match_type LIKE 'Final%%' AND ((team_1_id=%d) OR (team_2_id=%d))) AS c
+	(SELECT CONCAT(b.total, '/', b.wickets, ' (', b.overs, ' ov)', ' vs. ', b.team) bestBowling FROM (SELECT matchID, team_id FROM scores WHERE team_id = %d) AS a JOIN (SELECT matchID, team, total, wickets, overs FROM scores WHERE team_id != %d) AS b ON a.matchID = b.matchID ORDER BY b.total ASC, b.wickets DESC, b.overs ASC LIMIT 1) AS c
 	JOIN
-	(SELECT COUNT(DISTINCT season) championships FROM matches WHERE match_type LIKE 'Final%%' AND winner_id=%d) as d
+	(SELECT ROUND(win * 100 / total, 1) overall FROM (SELECT COUNT(*) total FROM scores WHERE team_id=%d) AS a JOIN (SELECT COUNT(*) win FROM scores WHERE team_id=%d AND winner=1) AS b) AS d
+	JOIN
+	(SELECT ROUND(win * 100 / total, 1) batfirst FROM (SELECT COUNT(*) total FROM scores WHERE team_id=%d AND innings=1) AS a JOIN (SELECT COUNT(*) win FROM scores WHERE team_id=%d AND winner=1 AND innings=1) AS b) AS e
+	JOIN
+	(SELECT ROUND(win * 100 / total, 1) fieldfirst FROM (SELECT COUNT(*) total FROM scores WHERE team_id=%d AND innings=2) AS a JOIN (SELECT COUNT(*) win FROM scores WHERE team_id=%d AND winner=1 AND innings=2) AS b) AS f
+	JOIN
+	(SELECT CONCAT(COUNT(*), '/', 5) AS last5 FROM (SELECT matchID FROM scores WHERE team_id=%d AND winner=1) AS a JOIN (SELECT date, matchID FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) ORDER BY date DESC LIMIT 5) b on a.matchID=b.matchID) AS g
+	JOIN
+	(SELECT CONCAT(COUNT(*), '/', 10) AS last10 FROM (SELECT matchID FROM scores WHERE team_id=%d AND winner=1) AS a JOIN (SELECT date, matchID FROM matches WHERE ((team_1_id=%d) OR (team_2_id=%d)) ORDER BY date DESC LIMIT 10) b on a.matchID=b.matchID) AS h;
 	`, id,
 		id, id,
 		id, id,
-		id)
-
-	return GetAppearances(query, db)
-
-}
-
-func GetAllTimeIndividualPerformances(id int, db *sql.DB) (Indiviudal, error) {
-	query := fmt.Sprintf(`
-	SELECT *
-	FROM
-	(SELECT player AS batsman, SUM(r) AS mostRuns FROM batting WHERE team_id=%d GROUP BY player ORDER BY mostRuns DESC LIMIT 1) AS a
-	JOIN
-	(SELECT player AS bowler, SUM(w) as mostWickets FROM bowling WHERE team_id=%d GROUP BY player ORDER BY mostWickets DESC LIMIT 1) AS b
-	JOIN
-	(SELECT CONCAT(CONVERT(r, CHAR), '/', CONVERT(b, CHAR), ' (', player, ')') AS highestScore FROM batting WHERE r=(SELECT MAX(r) FROM batting WHERE team_id=%d ORDER BY b ASC) AND team_id=%d LIMIT 1) AS c
-	JOIN
-	(SELECT CONCAT(CONVERT(w, CHAR), '/', CONVERT(r, CHAR), ' (', player, ')') bestBowling FROM bowling WHERE w=(SELECT MAX(w) FROM bowling WHERE team_id=%d ORDER BY r) AND team_id=%d LIMIT 1) AS d
-	`, id,
-		id,
 		id, id,
 		id, id,
+		id, id,
+		id, id, id,
+		id, id, id,
 	)
 
-	return GetIndividualPerformance(query, db)
+	return GetPerformancestats(query, db)
 }
 
-func GetAllTimeStats(id int, db *sql.DB) (Stats, error) {
+func GetAllTimePlayerAchievements(id int, db *sql.DB) (PlayerAchievements, error) {
 	query := fmt.Sprintf(`
-	SELECT *
+	SELECT * 
 	FROM
-	(SELECT CONCAT(CONVERT(total, CHAR), '/', CONVERT(wickets, CHAR)) AS highestScore FROM scores WHERE team_id=%d AND total=(SELECT MAX(total) FROM scores WHERE team_id=%d)) AS a
+	(SELECT a.player, CONCAT(a.r, '/', a.b) AS score, CONCAT('vs. ', b.team) AS against, a.season FROM (SELECT matchID, team, player, r, b, season FROM batting WHERE r = (SELECT max(r) FROM batting WHERE team_id=%d)) AS a JOIN (SELECT matchID, team FROM scores WHERE team_id != %d) AS b ON a.matchID=b.matchID) AS a
 	JOIN
-	(SELECT CONCAT(CONVERT(total, CHAR), '/', CONVERT(wickets, CHAR)) AS lowestScore FROM scores WHERE team_id=%d AND total=(SELECT MIN(total) FROM scores WHERE team_id=%d)) AS b
+	(SELECT a.player, CONCAT(a.w, '/', a.r, ' (', a.o, ' ov)') AS figure, CONCAT('vs. ', b.team) AS against, a.season FROM (SELECT matchID, team, team_id, player, w, r, o, season FROM bowling WHERE team_id = %d AND w = (SELECT MAX(w) FROM bowling WHERE team_id = %d ORDER BY r LIMIT 1)) AS a JOIN (SELECT matchID, team FROM scores WHERE team_id != %d) AS b ON a.matchID = b.matchID LIMIT 1) AS b
 	JOIN
-	(SELECT ROUND(AVG(total)) averageScore FROM scores WHERE team_id=%d) AS c
+	(SELECT player, count(*) centuries FROM batting WHERE r >= 100 AND team_id=%d GROUP BY player ORDER BY centuries DESC LIMIT 1) AS c
 	JOIN
-	(SELECT ROUND(AVG(wickets)) averageWickets FROM scores WHERE team_id=%d) AS d
-	JOIN
-	(SELECT SUM(total) totalRuns FROM scores WHERE team_id=%d) AS e
-	JOIN
-	(SELECT SUM(wickets) totalWickets FROM scores WHERE team_id=%d) AS f;
+	(SELECT player, SUM(w) wickets FROM bowling WHERE team_id=%d GROUP BY player ORDER BY SUM(w) DESC LIMIT 1) AS d;
 	`, id, id,
-		id, id,
-		id, id, id, id,
+		id, id, id,
+		id,
+		id,
 	)
 
-	return GetTeamStats(query, db)
+	return GetPlayerAchievements(query, db)
 }
 
-func GetAllTimeData(name string) (Team, error) {
+func GetAllTimeStats(name string) (Team, error) {
 	var team Team
 	var err error
 
@@ -108,26 +112,25 @@ func GetAllTimeData(name string) (Team, error) {
 		return team, err
 	}
 
-	team.Matches, err = GetAllTimeMatches(team.TeamID, database.DB)
+	team.TeamHistory, err = GetAllTimeHistory(team.TeamID, database.DB)
 
 	if err != nil {
 		return team, err
 	}
 
-	team.Appearances, err = GetAllTimeAppearances(team.TeamID, database.DB)
+	team.TeamMatchRecord, err = GetAllTimeMatchRecord(team.TeamID, database.DB)
 
 	if err != nil {
 		return team, err
 	}
 
-	team.IndiviudalPerformance, err = GetAllTimeIndividualPerformances(team.TeamID, database.DB)
+	team.TeamPerformanceStats, err = GetAllTimePerformanceStats(team.TeamID, database.DB)
 
 	if err != nil {
 		return team, err
 	}
 
-	team.Stats, err = GetAllTimeStats(team.TeamID, database.DB)
+	team.PlayerAchievements, err = GetAllTimePlayerAchievements(team.TeamID, database.DB)
 
 	return team, err
-
 }

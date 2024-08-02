@@ -87,3 +87,11 @@ UPDATE matches
 UPDATE matches
     JOIN teams ON matches.winner=teams.team_name
         SET matches.winner_id=teams.team_id;
+
+UPDATE scores
+    JOIN matches ON matches.matchID=scores.matchID AND matches.winner_id=scores.team_id
+        SET scores.winner=1;
+
+UPDATE scores SET winner=0 WHERE winner IS NULL; 
+
+DROP TABLE winners;

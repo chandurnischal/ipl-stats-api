@@ -46,6 +46,25 @@ def teamsPlayed(teams: BeautifulSoup) -> dict:
     return {"team_1": titles[0], "team_2": titles[1]}
 
 
+# def getMatchDetails(html: BeautifulSoup) -> dict:
+#     result = html.find(
+#         "div", class_="ds-text-tight-m ds-font-regular ds-text-typo-mid3"
+#     ).text
+#     teams = html.find(
+#         "div", class_="ds-flex ds-flex-col ds-mt-3 md:ds-mt-0 ds-mt-0 ds-mb-1"
+#     )
+#     outcome = html.find(
+#         "p", class_="ds-text-tight-s ds-font-medium ds-truncate ds-text-typo"
+#     ).text
+
+#     matchDetails = dict()
+#     matchDetails.update(resultDetails(result))
+#     matchDetails.update(teamsPlayed(teams))
+#     matchDetails["outcome"] = outcome
+
+#     return matchDetails
+
+
 def getMatchDetails(html: BeautifulSoup) -> dict:
     result = html.find(
         "div", class_="ds-text-tight-m ds-font-regular ds-text-typo-mid3"
@@ -57,13 +76,21 @@ def getMatchDetails(html: BeautifulSoup) -> dict:
         "p", class_="ds-text-tight-s ds-font-medium ds-truncate ds-text-typo"
     ).text
 
+    stadium = html.find("table", class_="ds-w-full ds-table ds-table-sm ds-table-auto").find("td", class_="ds-min-w-max")
+
+
+
     matchDetails = dict()
     matchDetails.update(resultDetails(result))
     matchDetails.update(teamsPlayed(teams))
     matchDetails["outcome"] = outcome
 
-    return matchDetails
+    if stadium != None:
+        matchDetails["stadium"] = stadium.text
+    else:
+        matchDetails["stadium"] = "unavailable"
 
+    return matchDetails
 
 def extractBatting(innings: BeautifulSoup) -> pd.DataFrame:
     batting = innings.find(
