@@ -6,7 +6,7 @@ import (
 	"ipl-api/database"
 )
 
-func GetAllTimePlayerHistory(id int, db *sql.DB) (History, error) {
+func GetSeasonPlayerHistory(id, season int, db *sql.DB) (History, error) {
 
 	query := fmt.Sprintf(
 		`
@@ -31,7 +31,7 @@ func GetAllTimePlayerHistory(id int, db *sql.DB) (History, error) {
 	return GetPlayerHistory(query, db)
 }
 
-func GetAllTimeBattingCard(name string) (BattingCard, error) {
+func GetSeasonBattingCard(name string, season int) (BattingCard, error) {
 	var batting BattingCard
 	var err error
 
@@ -42,7 +42,7 @@ func GetAllTimeBattingCard(name string) (BattingCard, error) {
 
 	}
 
-	batting.TournamentHistory, err = GetAllTimePlayerHistory(batting.PlayerID, database.DB)
+	batting.TournamentHistory, err = GetSeasonPlayerHistory(batting.PlayerID, season, database.DB)
 
 	return batting, err
 }

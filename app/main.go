@@ -20,6 +20,7 @@ func main() {
 	}
 
 	defer database.DB.Close()
+
 	app.Use(logger.New())
 
 	app.Get("/", handlers.HomepageHandler)
