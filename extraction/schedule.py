@@ -27,7 +27,7 @@ def retrieveMatchURLs(year: str) -> list[str]:
 
 def retrieveAllMatchURLs() -> None:
     urls = []
-    for key in tqdm(SEASONS.keys()):
+    for key in tqdm(SEASONS.keys(), desc="Extracting match sources"):
         try:
             urls += retrieveMatchURLs(key)
         except:

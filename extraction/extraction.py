@@ -1,18 +1,12 @@
 import os
 from time import perf_counter
+import json
 
 
 def main():
-    print("Extracting match URLS...")
+
     os.system("python extraction/schedule.py")
-
-    print("Extracting match data...")
     os.system("python extraction/scraper.py")
-
-    os.system("Get-Content data/backupAlpha.sql | mysql --user=root --password=root --binary-mode=1 ipl")
-
-    print("Preprocessing data...")
-    os.system("python extraction/query.py")
 
 if __name__ == '__main__':
     start = perf_counter()

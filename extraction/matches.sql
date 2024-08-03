@@ -93,3 +93,14 @@ CREATE TABLE IF NOT EXISTS winners (
     team_2 TEXT,
     winner TEXT
 );
+
+
+UPDATE matches SET stadium = TRIM(SUBSTRING_INDEX(stadium, ',', 1));
+
+CREATE TABLE IF NOT EXISTS stadiums (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name TEXT,
+    location TEXT
+);
+
+INSERT INTO stadiums (name, location) SELECT DISTINCT stadium AS name, venue AS location FROM matches;

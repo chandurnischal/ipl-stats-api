@@ -79,7 +79,7 @@ with mc.connect(**creds) as conn:
     INSERT INTO winners (matchID, team_1, team_2, winner) VALUES (%s, %s, %s, %s)
     """
     
-    for index, row in tqdm(data.iterrows(), total=data.shape[0], desc="Inserting winners..."):
+    for index, row in tqdm(data.iterrows(), total=data.shape[0], desc="Processing winners..."):
         cursor.execute(insertStatement, (row['matchID'], row["team_1"], row["team_2"], row["winner"])) 
 
 

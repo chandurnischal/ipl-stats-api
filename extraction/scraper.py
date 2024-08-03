@@ -28,13 +28,13 @@ def pushToDB(data:pd.DataFrame, tablename:str) -> None:
     data.to_sql(name=tablename, con=engine, if_exists="append", index=False)
 
 
-with open("extraction/matches.txt") as file:
+with open("extraction/matches2.txt") as file:
     urls = file.readlines()
 
 
 with open("extraction/errors.csv", "a") as error:
     error.write("id,url,error\n")
-    for url in tqdm(urls):
+    for url in tqdm(urls, desc="Extracting match scorecards"):
         url = url.strip()
         id = getID(url)
 

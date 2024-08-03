@@ -18,16 +18,16 @@ UPDATE bowling
         WHERE 
             team LIKE '%Punjab%';
 
-UPDATE bowling set o = NULL WHERE o LIKE '%-%';
-UPDATE bowling set m = NULL WHERE m LIKE '%-%';
-UPDATE bowling set r = NULL WHERE r LIKE '%-%';
-UPDATE bowling set w = NULL WHERE w LIKE '%-%';
-UPDATE bowling set econ = NULL WHERE econ LIKE '%-%';
-UPDATE bowling set 0s = NULL WHERE 0s LIKE '%-%';
-UPDATE bowling set 4s = NULL WHERE 4s LIKE '%-%';
-UPDATE bowling set 6s = NULL WHERE 6s LIKE '%-%';
-UPDATE bowling set wd = NULL WHERE wd LIKE '%-%';
-UPDATE bowling set nb = NULL WHERE nb LIKE '%-%';
+UPDATE bowling SET o = NULL WHERE o LIKE '%-%';
+UPDATE bowling SET m = NULL WHERE m LIKE '%-%';
+UPDATE bowling SET r = NULL WHERE r LIKE '%-%';
+UPDATE bowling SET w = NULL WHERE w LIKE '%-%';
+UPDATE bowling SET econ = NULL WHERE econ LIKE '%-%';
+UPDATE bowling SET 0s = NULL WHERE 0s LIKE '%-%';
+UPDATE bowling SET 4s = NULL WHERE 4s LIKE '%-%';
+UPDATE bowling SET 6s = NULL WHERE 6s LIKE '%-%';
+UPDATE bowling SET wd = NULL WHERE wd LIKE '%-%';
+UPDATE bowling SET nb = NULL WHERE nb LIKE '%-%';
 UPDATE bowling SET player = REGEXP_REPLACE(player, '[^a-zA-Z0-9 ]', '');
 
 
@@ -47,8 +47,10 @@ ALTER TABLE bowling
     MODIFY COLUMN matchID BIGINT,
     ADD COLUMN team_id INT,
     ADD COLUMN season INT,
-    ADD COLUMN player_id INT;
+    ADD COLUMN player_id INT,
+    ADD COLUMN b INT;
 
+UPDATE bowling SET b = (FLOOR(o) * 6) + (o - FLOOR(o));
 UPDATE bowling
     JOIN teams ON bowling.team = teams.team_name
         SET bowling.team_id = teams.team_id;
