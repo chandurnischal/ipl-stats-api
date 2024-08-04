@@ -10,90 +10,80 @@ func GetMost4sPerInnings(season int, db *sql.DB) BatInnings {
 
 	if season == 0 {
 		query = `
+		WITH top_fours AS (
 		SELECT 
-			a.player, 
-			a.team, 
-			b.team AS against, 
-			a.season,
-			a.r, 
-			a.b, 
-			a.r * 100 / a.b AS strikerate, 
-			a.4s, 
-			a.6s 
+			matchID, 
+			player, 
+			team_id, 
+			team, 
+			season, 
+			r, 
+			b, 
+			r * 100 / NULLIF(b, 0) AS strikerate, 
+			4s, 
+			6s
 		FROM 
-		(
-			SELECT 
-				matchID, 
-				team, 
-				player, 
-				season,
-				r, 
-				b, 
-				4s, 
-				6s 
-			FROM 
-				batting 
-			ORDER BY 
-				4s DESC, 
-				r DESC 
-			LIMIT 1
-		) AS a 
-		JOIN 
-		(
-			SELECT 
-				matchID, 
-				team 
-			FROM 
-				scores
-		) AS b 
-		ON 
-			a.matchID = b.matchID 
-			AND a.team != b.team;
+			batting
+		ORDER BY 
+			4s DESC
+		LIMIT 1
+	)
+	SELECT 
+		t.player,
+		t.team,
+		s.team AS against,
+		t.season,
+		t.r,
+		t.b,
+		t.strikerate,
+		t.4s,
+		t.6s
+	FROM 
+		top_fours t
+	JOIN 
+		scores s
+	ON 
+		t.matchID = s.matchID
+		AND t.team_id != s.team_id;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
+		query = fmt.Sprintf(`
+		WITH top_fours AS (
 		SELECT 
-			a.player, 
-			a.team, 
-			b.team AS against,
-			a.season, 
-			a.r, 
-			a.b, 
-			a.r * 100 / a.b AS strikerate, 
-			a.4s, 
-			a.6s 
+			matchID, 
+			player, 
+			team_id, 
+			team, 
+			season, 
+			r, 
+			b, 
+			r * 100 / NULLIF(b, 0) AS strikerate, 
+			4s, 
+			6s
 		FROM 
-		(
-			SELECT 
-				matchID, 
-				team, 
-				player, 
-				season,
-				r, 
-				b, 
-				4s, 
-				6s 
-			FROM 
-				batting WHERE season = %d
-			ORDER BY 
-				4s DESC, 
-				r DESC 
-			LIMIT 1
-		) AS a 
-		JOIN 
-		(
-			SELECT 
-				matchID, 
-				team 
-			FROM 
-				scores
-		) AS b 
-		ON 
-			a.matchID = b.matchID 
-			AND a.team != b.team;
-		`, season,
-		)
+			batting WHERE season = %d
+		ORDER BY 
+			4s DESC
+		LIMIT 1
+	)
+	SELECT 
+		t.player,
+		t.team,
+		s.team AS against,
+		t.season,
+		t.r,
+		t.b,
+		t.strikerate,
+		t.4s,
+		t.6s
+	FROM 
+		top_fours t
+	JOIN 
+		scores s
+	ON 
+		t.matchID = s.matchID
+		AND t.team_id != s.team_id;
+		`, season)
 	}
 
 	return GetBattingInnings(query, db)
@@ -104,90 +94,80 @@ func GetMost6sPerInnings(season int, db *sql.DB) BatInnings {
 
 	if season == 0 {
 		query = `
+		WITH top_fours AS (
 		SELECT 
-			a.player, 
-			a.team, 
-			b.team AS against, 
-			a.season,
-			a.r, 
-			a.b, 
-			a.r * 100 / a.b AS strikerate, 
-			a.4s, 
-			a.6s 
+			matchID, 
+			player, 
+			team_id, 
+			team, 
+			season, 
+			r, 
+			b, 
+			r * 100 / NULLIF(b, 0) AS strikerate, 
+			4s, 
+			6s
 		FROM 
-		(
-			SELECT 
-				matchID, 
-				team, 
-				player,
-				season, 
-				r, 
-				b, 
-				4s, 
-				6s 
-			FROM 
-				batting 
-			ORDER BY 
-				6s DESC, 
-				r DESC 
-			LIMIT 1
-		) AS a 
-		JOIN 
-		(
-			SELECT 
-				matchID, 
-				team 
-			FROM 
-				scores
-		) AS b 
-		ON 
-			a.matchID = b.matchID 
-			AND a.team != b.team;
+			batting
+		ORDER BY 
+			6s DESC
+		LIMIT 1
+	)
+	SELECT 
+		t.player,
+		t.team,
+		s.team AS against,
+		t.season,
+		t.r,
+		t.b,
+		t.strikerate,
+		t.4s,
+		t.6s
+	FROM 
+		top_fours t
+	JOIN 
+		scores s
+	ON 
+		t.matchID = s.matchID
+		AND t.team_id != s.team_id;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
+		query = fmt.Sprintf(`
+		WITH top_fours AS (
 		SELECT 
-			a.player, 
-			a.team, 
-			b.team AS against, 
-			a.season,
-			a.r, 
-			a.b, 
-			a.r * 100 / a.b AS strikerate, 
-			a.4s, 
-			a.6s 
+			matchID, 
+			player, 
+			team_id, 
+			team, 
+			season, 
+			r, 
+			b, 
+			r * 100 / NULLIF(b, 0) AS strikerate, 
+			4s, 
+			6s
 		FROM 
-		(
-			SELECT 
-				matchID, 
-				team, 
-				player, 
-				season,
-				r, 
-				b, 
-				4s, 
-				6s 
-			FROM 
-				batting WHERE season = %d
-			ORDER BY 
-				6s DESC, 
-				r DESC 
-			LIMIT 1
-		) AS a 
-		JOIN 
-		(
-			SELECT 
-				matchID, 
-				team 
-			FROM 
-				scores
-		) AS b 
-		ON 
-			a.matchID = b.matchID 
-			AND a.team != b.team;
-		`, season,
-		)
+			batting WHERE season = %d
+		ORDER BY 
+			6s DESC
+		LIMIT 1
+	)
+	SELECT 
+		t.player,
+		t.team,
+		s.team AS against,
+		t.season,
+		t.r,
+		t.b,
+		t.strikerate,
+		t.4s,
+		t.6s
+	FROM 
+		top_fours t
+	JOIN 
+		scores s
+	ON 
+		t.matchID = s.matchID
+		AND t.team_id != s.team_id;
+		`, season)
 	}
 
 	return GetBattingInnings(query, db)
@@ -198,88 +178,80 @@ func GetFastest50(season int, db *sql.DB) BatInnings {
 
 	if season == 0 {
 		query = `
-			SELECT 
-				a.player, 
-				a.team, 
-				b.team AS against, 
-				a.season,
-				a.r, 
-				a.b, 
-				a.r * 100 / a.b AS strikerate, 
-				a.4s, 
-				a.6s 
-			FROM 
-			(
-				SELECT 
-					matchID, 
-					team, 
-					player, 
-					season,
-					r, 
-					b, 
-					4s, 
-					6s 
-				FROM 
-					batting WHERE r >= 50
-				ORDER BY 
-					b
-				LIMIT 1
-			) AS a 
-			JOIN 
-			(
-				SELECT 
-					matchID, 
-					team 
-				FROM 
-					scores
-			) AS b 
-			ON 
-				a.matchID = b.matchID 
-				AND a.team != b.team;		
+		WITH top_fours AS (
+		SELECT 
+			matchID, 
+			player, 
+			team_id, 
+			team, 
+			season, 
+			r, 
+			b, 
+			r * 100 / NULLIF(b, 0) AS strikerate, 
+			4s, 
+			6s
+		FROM 
+			batting WHERE r >= 50 AND r < 100
+		ORDER BY 
+			r ASC, b ASC
+		LIMIT 1
+	)
+	SELECT 
+		t.player,
+		t.team,
+		s.team AS against,
+		t.season,
+		t.r,
+		t.b,
+		t.strikerate,
+		t.4s,
+		t.6s
+	FROM 
+		top_fours t
+	JOIN 
+		scores s
+	ON 
+		t.matchID = s.matchID
+		AND t.team_id != s.team_id;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT 
-				a.player, 
-				a.team, 
-				b.team AS against, 
-				a.season,
-				a.r, 
-				a.b, 
-				a.r * 100 / a.b AS strikerate, 
-				a.4s, 
-				a.6s 
-			FROM 
-			(
-				SELECT 
-					matchID, 
-					team, 
-					player,
-					season, 
-					r, 
-					b, 
-					4s, 
-					6s 
-				FROM 
-					batting WHERE r >= 50 AND season = %d 
-				ORDER BY 
-					b
-				LIMIT 1
-			) AS a 
-			JOIN 
-			(
-				SELECT 
-					matchID, 
-					team 
-				FROM 
-					scores
-			) AS b 
-			ON 
-				a.matchID = b.matchID 
-				AND a.team != b.team;`,
-			season,
-		)
+		query = fmt.Sprintf(`
+		WITH top_fours AS (
+		SELECT 
+			matchID, 
+			player, 
+			team_id, 
+			team, 
+			season, 
+			r, 
+			b, 
+			r * 100 / NULLIF(b, 0) AS strikerate, 
+			4s, 
+			6s
+		FROM 
+			batting WHERE season = %d AND r >= 50 AND r < 100
+		ORDER BY 
+			r ASC, b ASC
+		LIMIT 1
+	)
+	SELECT 
+		t.player,
+		t.team,
+		s.team AS against,
+		t.season,
+		t.r,
+		t.b,
+		t.strikerate,
+		t.4s,
+		t.6s
+	FROM 
+		top_fours t
+	JOIN 
+		scores s
+	ON 
+		t.matchID = s.matchID
+		AND t.team_id != s.team_id;
+		`, season)
 	}
 
 	return GetBattingInnings(query, db)
@@ -290,88 +262,80 @@ func GetFastest100(season int, db *sql.DB) BatInnings {
 
 	if season == 0 {
 		query = `
-			SELECT 
-				a.player, 
-				a.team, 
-				b.team AS against, 
-				a.season,
-				a.r, 
-				a.b, 
-				a.r * 100 / a.b AS strikerate, 
-				a.4s, 
-				a.6s 
-			FROM 
-			(
-				SELECT 
-					matchID, 
-					team, 
-					player, 
-					season,
-					r, 
-					b, 
-					4s, 
-					6s 
-				FROM 
-					batting WHERE r >= 100
-				ORDER BY 
-					b
-				LIMIT 1
-			) AS a 
-			JOIN 
-			(
-				SELECT 
-					matchID, 
-					team 
-				FROM 
-					scores
-			) AS b 
-			ON 
-				a.matchID = b.matchID 
-				AND a.team != b.team;		
+		WITH top_fours AS (
+		SELECT 
+			matchID, 
+			player, 
+			team_id, 
+			team, 
+			season, 
+			r, 
+			b, 
+			r * 100 / NULLIF(b, 0) AS strikerate, 
+			4s, 
+			6s
+		FROM 
+			batting WHERE r >= 100
+		ORDER BY 
+			r ASC, b ASC
+		LIMIT 1
+	)
+	SELECT 
+		t.player,
+		t.team,
+		s.team AS against,
+		t.season,
+		t.r,
+		t.b,
+		t.strikerate,
+		t.4s,
+		t.6s
+	FROM 
+		top_fours t
+	JOIN 
+		scores s
+	ON 
+		t.matchID = s.matchID
+		AND t.team_id != s.team_id;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT 
-				a.player, 
-				a.team, 
-				b.team AS against, 
-				a.season,
-				a.r, 
-				a.b, 
-				a.r * 100 / a.b AS strikerate, 
-				a.4s, 
-				a.6s 
-			FROM 
-			(
-				SELECT 
-					matchID, 
-					team, 
-					player,
-					season, 
-					r, 
-					b, 
-					4s, 
-					6s 
-				FROM 
-					batting WHERE r >= 100 AND season = %d 
-				ORDER BY 
-					b
-				LIMIT 1
-			) AS a 
-			JOIN 
-			(
-				SELECT 
-					matchID, 
-					team 
-				FROM 
-					scores
-			) AS b 
-			ON 
-				a.matchID = b.matchID 
-				AND a.team != b.team;`,
-			season,
-		)
+		query = fmt.Sprintf(`
+		WITH top_fours AS (
+		SELECT 
+			matchID, 
+			player, 
+			team_id, 
+			team, 
+			season, 
+			r, 
+			b, 
+			r * 100 / NULLIF(b, 0) AS strikerate, 
+			4s, 
+			6s
+		FROM 
+			batting WHERE season = %d AND r >= 100
+		ORDER BY 
+			r ASC, b ASC
+		LIMIT 1
+	)
+	SELECT 
+		t.player,
+		t.team,
+		s.team AS against,
+		t.season,
+		t.r,
+		t.b,
+		t.strikerate,
+		t.4s,
+		t.6s
+	FROM 
+		top_fours t
+	JOIN 
+		scores s
+	ON 
+		t.matchID = s.matchID
+		AND t.team_id != s.team_id;
+		`, season)
 	}
 
 	return GetBattingInnings(query, db)
@@ -382,88 +346,80 @@ func GetHighestScore(season int, db *sql.DB) BatInnings {
 
 	if season == 0 {
 		query = `
+		WITH top_fours AS (
 			SELECT 
-				a.player, 
-				a.team, 
-				b.team AS against, 
-				a.season,
-				a.r, 
-				a.b, 
-				a.r * 100 / a.b AS strikerate, 
-				a.4s, 
-				a.6s 
+				matchID, 
+				player, 
+				team_id, 
+				team, 
+				season, 
+				r, 
+				b, 
+				r * 100 / NULLIF(b, 0) AS strikerate, 
+				4s, 
+				6s
 			FROM 
-			(
-				SELECT 
-					matchID, 
-					team, 
-					player, 
-					season,
-					r, 
-					b, 
-					4s, 
-					6s 
-				FROM 
-					batting
-				ORDER BY 
-					r DESC, b ASC
-				LIMIT 1
-			) AS a 
-			JOIN 
-			(
-				SELECT 
-					matchID, 
-					team 
-				FROM 
-					scores
-			) AS b 
-			ON 
-				a.matchID = b.matchID 
-				AND a.team != b.team;		
+				batting
+			ORDER BY 
+				r DESC, b ASC
+			LIMIT 1
+		)
+		SELECT 
+			t.player,
+			t.team,
+			s.team AS against,
+			t.season,
+			t.r,
+			t.b,
+			t.strikerate,
+			t.4s,
+			t.6s
+		FROM 
+			top_fours t
+		JOIN 
+			scores s
+		ON 
+			t.matchID = s.matchID
+			AND t.team_id != s.team_id;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT 
-				a.player, 
-				a.team, 
-				b.team AS against, 
-				a.season,
-				a.r, 
-				a.b, 
-				a.r * 100 / a.b AS strikerate, 
-				a.4s, 
-				a.6s 
-			FROM 
-			(
+		query = fmt.Sprintf(`
+			WITH top_fours AS (
 				SELECT 
 					matchID, 
+					player, 
+					team_id, 
 					team, 
-					player,
 					season, 
 					r, 
 					b, 
+					r * 100 / NULLIF(b, 0) AS strikerate, 
 					4s, 
-					6s 
+					6s
 				FROM 
-					batting WHERE season = %d 
+					batting WHERE season = %d
 				ORDER BY 
 					r DESC, b ASC
 				LIMIT 1
-			) AS a 
+			)
+			SELECT 
+				t.player,
+				t.team,
+				s.team AS against,
+				t.season,
+				t.r,
+				t.b,
+				t.strikerate,
+				t.4s,
+				t.6s
+			FROM 
+				top_fours t
 			JOIN 
-			(
-				SELECT 
-					matchID, 
-					team 
-				FROM 
-					scores
-			) AS b 
+				scores s
 			ON 
-				a.matchID = b.matchID 
-				AND a.team != b.team;`,
-			season,
-		)
+				t.matchID = s.matchID
+				AND t.team_id != s.team_id;
+		`, season)
 	}
 
 	return GetBattingInnings(query, db)

@@ -1,12 +1,7 @@
 package league
 
-type League struct {
-	Season      int     `json:"season"`
-	BatRecords  Batting `json:"battingRecords"`
-	BowlRecords Bowling `json:"bowlingRecords"`
-}
-
 type Batting struct {
+	Season              int        `json:"season"`
 	MostRuns            BatOverall `json:"mostRuns"`
 	MostFours           BatOverall `json:"mostFours"`
 	MostSixes           BatOverall `json:"mostSixes"`
@@ -49,6 +44,7 @@ type BatInnings struct {
 }
 
 type Bowling struct {
+	Season                int         `json:"season"`
 	MostWickets           BowlOverall `json:"mostWickets"`
 	MostMaidens           BowlOverall `json:"mostMaidens"`
 	MostDotBalls          BowlOverall `json:"mostDots"`

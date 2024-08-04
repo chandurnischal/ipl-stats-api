@@ -7,512 +7,854 @@ import (
 
 func GetMostRuns(season int, db *sql.DB) BatOverall {
 	var query string
-	var mostRuns BatOverall
 
 	if season == 0 {
 		query = `
-		SELECT a.player, a.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-		a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries
-		FROM
-		(
-			SELECT
-				player_id,
-				player,
-				team,
-				COUNT(*) AS innings, 
-				SUM(r) AS totalruns, 
-				SUM(b) AS totalballs, 
-				SUM(4s) AS fours,
-				SUM(6s) AS sixes,
-				ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-				ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-				SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-				SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-			FROM batting 
-			GROUP BY player_id, player, team
-			ORDER BY SUM(r) DESC, SUM(b)
-			LIMIT 1
-		) AS a
-		JOIN
-		(
-			SELECT player_id, CONCAT(MAX(r), '/', b) AS highestScore 
-			FROM batting 
-			GROUP BY player_id, b
-			ORDER BY MAX(r) DESC, b 
-		) AS b ON a.player_id = b.player_id LIMIT 1;
-			`
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.totalRuns DESC
+	LIMIT 1;
+		`
 	} else {
 		query = fmt.Sprintf(`
-		SELECT a.player, a.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-       	a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries
-		FROM
-		(
-			SELECT
-				player_id,
-				player,
-				team,
-				COUNT(*) AS innings, 
-				SUM(r) AS totalruns, 
-				SUM(b) AS totalballs, 
-				SUM(4s) AS fours,
-				SUM(6s) AS sixes,
-				ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-				ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-				SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-				SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-			FROM batting WHERE season = %d
-			GROUP BY player_id, player, team
-			ORDER BY SUM(r) DESC, SUM(b)
-			LIMIT 1
-		) AS a
-		JOIN
-		(
-			SELECT player_id, CONCAT(MAX(r), '/', b) AS highestScore 
-			FROM batting WHERE season = %d
-			GROUP BY player_id, b
-			ORDER BY MAX(r) DESC, b 
-		) AS b ON a.player_id = b.player_id LIMIT 1;
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting WHERE season = %d
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting WHERE season = %d
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.totalRuns DESC
+	LIMIT 1;
 		`, season,
 			season,
 		)
 	}
-	mostRuns = GetBattingOverall(query, db)
 
-	return mostRuns
+	res := GetBattingOverall(query, db)
+
+	if season == 0 {
+		res.Team = GetPlayerTeam(res.Player, 0, db)
+	} else {
+		res.Team = GetPlayerTeam(res.Player, season, db)
+	}
+
+	return res
 }
 
 func GetMostFours(season int, db *sql.DB) BatOverall {
 	var query string
+
 	if season == 0 {
 		query = `
-		SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-       a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries 
-		FROM
-		(
-			SELECT
-				player_id,
-				player,
-				COUNT(*) AS innings, 
-				SUM(r) AS totalruns, 
-				SUM(b) AS totalballs, 
-				SUM(4s) AS fours,
-				SUM(6s) AS sixes,
-				ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-				ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-				SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-				SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-			FROM batting 
-			GROUP BY player_id, player
-			ORDER BY SUM(4s) DESC, SUM(r) DESC
-			LIMIT 1
-		) AS a
-		JOIN
-		(
-			SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-			FROM batting 
-			GROUP BY player_id, team, b
-			ORDER BY MAX(r) DESC, b 
-		) AS b ON a.player_id = b.player_id LIMIT 1;
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.total4s DESC
+	LIMIT 1;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-				a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries
-			FROM
-			(
-				SELECT
-					player_id,
-					player,
-					COUNT(*) AS innings, 
-					SUM(r) AS totalruns, 
-					SUM(b) AS totalballs, 
-					SUM(4s) AS fours,
-					SUM(6s) AS sixes,
-					ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-					ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-					SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-					SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-				FROM batting WHERE season = %d
-				GROUP BY player_id, player
-				ORDER BY SUM(4s) DESC, SUM(r) DESC
-				LIMIT 1
-			) AS a
-			JOIN
-			(
-				SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-				FROM batting WHERE season = %d
-				GROUP BY player_id, team, b
-				ORDER BY MAX(r) DESC, b 
-			) AS b ON a.player_id = b.player_id LIMIT 1;
-			`, season,
+		query = fmt.Sprintf(`
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting WHERE season = %d
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting WHERE season = %d
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.total4s DESC
+	LIMIT 1;
+		`, season,
 			season,
 		)
 	}
 
-	return GetBattingOverall(query, db)
+	res := GetBattingOverall(query, db)
+
+	if season == 0 {
+		res.Team = GetPlayerTeam(res.Player, 0, db)
+	} else {
+		res.Team = GetPlayerTeam(res.Player, season, db)
+	}
+
+	return res
 }
 
 func GetMostSixes(season int, db *sql.DB) BatOverall {
 	var query string
+
 	if season == 0 {
 		query = `
-		SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-       a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries 
-		FROM
-		(
-			SELECT
-				player_id,
-				player,
-				COUNT(*) AS innings, 
-				SUM(r) AS totalruns, 
-				SUM(b) AS totalballs, 
-				SUM(4s) AS fours,
-				SUM(6s) AS sixes,
-				ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-				ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-				SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-				SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-			FROM batting 
-			GROUP BY player_id, player
-			ORDER BY SUM(6s) DESC, SUM(r) DESC
-			LIMIT 1
-		) AS a
-		JOIN
-		(
-			SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-			FROM batting 
-			GROUP BY player_id, team, b
-			ORDER BY MAX(r) DESC, b 
-		) AS b ON a.player_id = b.player_id LIMIT 1;
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.total6s DESC
+	LIMIT 1;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-				a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries
-			FROM
-			(
-				SELECT
-					player_id,
-					player,
-					COUNT(*) AS innings, 
-					SUM(r) AS totalruns, 
-					SUM(b) AS totalballs, 
-					SUM(4s) AS fours,
-					SUM(6s) AS sixes,
-					ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-					ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-					SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-					SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-				FROM batting WHERE season = %d
-				GROUP BY player_id, player
-				ORDER BY SUM(6s) DESC, SUM(r) DESC
-				LIMIT 1
-			) AS a
-			JOIN
-			(
-				SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-				FROM batting WHERE season = %d
-				GROUP BY player_id, team, b
-				ORDER BY MAX(r) DESC, b 
-			) AS b ON a.player_id = b.player_id LIMIT 1;
-			`, season,
+		query = fmt.Sprintf(`
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting WHERE season = %d
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting WHERE season = %d
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.total6s DESC
+	LIMIT 1;
+		`, season,
 			season,
 		)
 	}
 
-	return GetBattingOverall(query, db)
+	res := GetBattingOverall(query, db)
+
+	if season == 0 {
+		res.Team = GetPlayerTeam(res.Player, 0, db)
+	} else {
+		res.Team = GetPlayerTeam(res.Player, season, db)
+	}
+
+	return res
 }
 
-func GetMost50s(season int, db *sql.DB) BatOverall {
+func GetMostFifties(season int, db *sql.DB) BatOverall {
 	var query string
+
 	if season == 0 {
 		query = `
-		SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-       a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries 
-		FROM
-		(
-			SELECT
-				player_id,
-				player,
-				COUNT(*) AS innings, 
-				SUM(r) AS totalruns, 
-				SUM(b) AS totalballs, 
-				SUM(4s) AS fours,
-				SUM(6s) AS sixes,
-				ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-				ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-				SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-				SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-			FROM batting 
-			GROUP BY player_id, player
-			ORDER BY halfcenturies DESC, SUM(r) DESC
-			LIMIT 1
-		) AS a
-		JOIN
-		(
-			SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-			FROM batting 
-			GROUP BY player_id, team, b
-			ORDER BY MAX(r) DESC, b 
-		) AS b ON a.player_id = b.player_id LIMIT 1;
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.total50s DESC
+	LIMIT 1;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-				a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries
-			FROM
-			(
-				SELECT
-					player_id,
-					player,
-					COUNT(*) AS innings, 
-					SUM(r) AS totalruns, 
-					SUM(b) AS totalballs, 
-					SUM(4s) AS fours,
-					SUM(6s) AS sixes,
-					ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-					ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-					SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-					SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-				FROM batting WHERE season = %d
-				GROUP BY player_id, player
-				ORDER BY halfcenturies DESC, SUM(r) DESC
-				LIMIT 1
-			) AS a
-			JOIN
-			(
-				SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-				FROM batting WHERE season = %d
-				GROUP BY player_id, team, b
-				ORDER BY MAX(r) DESC, b 
-			) AS b ON a.player_id = b.player_id LIMIT 1;
-			`, season,
+		query = fmt.Sprintf(`
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting WHERE season = %d
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting WHERE season = %d
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.total50s DESC
+	LIMIT 1;
+		`, season,
 			season,
 		)
 	}
 
-	return GetBattingOverall(query, db)
+	res := GetBattingOverall(query, db)
+
+	if season == 0 {
+		res.Team = GetPlayerTeam(res.Player, 0, db)
+	} else {
+		res.Team = GetPlayerTeam(res.Player, season, db)
+	}
+
+	return res
 }
 
-func GetMost100s(season int, db *sql.DB) BatOverall {
+func GetMostHundrends(season int, db *sql.DB) BatOverall {
 	var query string
+
 	if season == 0 {
 		query = `
-		SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-       a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries 
-		FROM
-		(
-			SELECT
-				player_id,
-				player,
-				COUNT(*) AS innings, 
-				SUM(r) AS totalruns, 
-				SUM(b) AS totalballs, 
-				SUM(4s) AS fours,
-				SUM(6s) AS sixes,
-				ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-				ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-				SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-				SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-			FROM batting 
-			GROUP BY player_id, player
-			ORDER BY centuries DESC, SUM(r) DESC
-			LIMIT 1
-		) AS a
-		JOIN
-		(
-			SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-			FROM batting 
-			GROUP BY player_id, team, b
-			ORDER BY MAX(r) DESC, b 
-		) AS b ON a.player_id = b.player_id LIMIT 1;
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.total100s DESC
+	LIMIT 1;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-				a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries
-			FROM
-			(
-				SELECT
-					player_id,
-					player,
-					COUNT(*) AS innings, 
-					SUM(r) AS totalruns, 
-					SUM(b) AS totalballs, 
-					SUM(4s) AS fours,
-					SUM(6s) AS sixes,
-					ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-					ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-					SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-					SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-				FROM batting WHERE season = %d
-				GROUP BY player_id, player
-				ORDER BY centuries DESC, SUM(r) DESC
-				LIMIT 1
-			) AS a
-			JOIN
-			(
-				SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-				FROM batting WHERE season = %d
-				GROUP BY player_id, team, b
-				ORDER BY MAX(r) DESC, b 
-			) AS b ON a.player_id = b.player_id LIMIT 1;
-			`, season,
+		query = fmt.Sprintf(`
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting WHERE season = %d
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting WHERE season = %d
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.total100s DESC
+	LIMIT 1;
+		`, season,
 			season,
 		)
 	}
 
-	return GetBattingOverall(query, db)
+	res := GetBattingOverall(query, db)
+
+	if season == 0 {
+		res.Team = GetPlayerTeam(res.Player, 0, db)
+	} else {
+		res.Team = GetPlayerTeam(res.Player, season, db)
+	}
+
+	return res
 }
 
 func GetBestStrikeRate(season int, db *sql.DB) BatOverall {
 	var query string
+
 	if season == 0 {
 		query = `
-		SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-       a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries 
-		FROM
-		(
-			SELECT
-				player_id,
-				player,
-				COUNT(*) AS innings, 
-				SUM(r) AS totalruns, 
-				SUM(b) AS totalballs, 
-				SUM(4s) AS fours,
-				SUM(6s) AS sixes,
-				ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-				ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-				SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-				SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-			FROM batting 
-			GROUP BY player_id, player
-			HAVING innings >= 12
-			ORDER BY strikerate DESC
-			LIMIT 1
-		) AS a
-		JOIN
-		(
-			SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-			FROM batting 
-			GROUP BY player_id, team, b
-			ORDER BY MAX(r) DESC, b 
-		) AS b ON a.player_id = b.player_id LIMIT 1;
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.strikeRate DESC
+	LIMIT 1;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-				a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries
-			FROM
-			(
-				SELECT
-					player_id,
-					player,
-					COUNT(*) AS innings, 
-					SUM(r) AS totalruns, 
-					SUM(b) AS totalballs, 
-					SUM(4s) AS fours,
-					SUM(6s) AS sixes,
-					ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-					ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-					SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-					SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-				FROM batting WHERE season = %d
-				GROUP BY player_id, player
-				HAVING innings >= 12
-				ORDER BY strikerate DESC
-				LIMIT 1
-			) AS a
-			JOIN
-			(
-				SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-				FROM batting WHERE season = %d
-				GROUP BY player_id, team, b
-				ORDER BY MAX(r) DESC, b 
-			) AS b ON a.player_id = b.player_id LIMIT 1;
-			`, season,
+		query = fmt.Sprintf(`
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting WHERE season = %d
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting WHERE season = %d
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.strikeRate DESC
+	LIMIT 1;
+		`, season,
 			season,
 		)
 	}
 
-	return GetBattingOverall(query, db)
+	res := GetBattingOverall(query, db)
+
+	if season == 0 {
+		res.Team = GetPlayerTeam(res.Player, 0, db)
+	} else {
+		res.Team = GetPlayerTeam(res.Player, season, db)
+	}
+
+	return res
 }
 
 func GetBestBattingAverage(season int, db *sql.DB) BatOverall {
 	var query string
+
 	if season == 0 {
 		query = `
-		SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-       a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries 
-		FROM
-		(
-			SELECT
-				player_id,
-				player,
-				COUNT(*) AS innings, 
-				SUM(r) AS totalruns, 
-				SUM(b) AS totalballs, 
-				SUM(4s) AS fours,
-				SUM(6s) AS sixes,
-				ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-				ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-				SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-				SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-			FROM batting 
-			GROUP BY player_id, player
-			HAVING innings >= 12
-			ORDER BY battingaverage DESC
-			LIMIT 1
-		) AS a
-		JOIN
-		(
-			SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-			FROM batting 
-			GROUP BY player_id, team, b
-			ORDER BY MAX(r) DESC, b 
-		) AS b ON a.player_id = b.player_id LIMIT 1;
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%not out%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.battingaverage DESC
+	LIMIT 1;
 		`
 	} else {
-		query = fmt.Sprintf(
-			`
-			SELECT a.player, b.team, a.innings, a.totalruns, a.totalballs, a.fours, a.sixes, 
-				a.battingaverage, a.strikerate, b.highestScore, a.halfcenturies, a.centuries
-			FROM
-			(
-				SELECT
-					player_id,
-					player,
-					COUNT(*) AS innings, 
-					SUM(r) AS totalruns, 
-					SUM(b) AS totalballs, 
-					SUM(4s) AS fours,
-					SUM(6s) AS sixes,
-					ROUND(SUM(r) / SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 2) AS battingaverage, 
-					ROUND((SUM(r) * 100) / SUM(b), 2) AS strikerate, 
-					SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS halfcenturies,
-					SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS centuries
-				FROM batting WHERE season = %d
-				GROUP BY player_id, player
-				HAVING innings >= 12
-				ORDER BY battingaverage DESC
-				LIMIT 1
-			) AS a
-			JOIN
-			(
-				SELECT player_id, team, CONCAT(MAX(r), '/', b) AS highestScore 
-				FROM batting WHERE season = %d
-				GROUP BY player_id, team, b
-				ORDER BY MAX(r) DESC, b 
-			) AS b ON a.player_id = b.player_id LIMIT 1;
-			`, season,
+		query = fmt.Sprintf(`
+		WITH aggregated AS (
+		SELECT 
+			player_id,
+			player, 
+			COUNT(*) AS innings,
+			SUM(r) AS totalRuns, 
+			SUM(b) AS totalBalls,
+			SUM(4s) AS total4s,
+			SUM(6s) AS total6s,
+			ROUND(SUM(r) / NULLIF(SUM(CASE WHEN dismissal_info NOT LIKE '%%not out%%' THEN 1 ELSE 0 END), 0), 2) AS battingaverage,
+			ROUND(SUM(r) * 100 / NULLIF(SUM(b), 0), 2) AS strikeRate,
+			SUM(CASE WHEN r >= 50 AND r < 100 THEN 1 ELSE 0 END) AS total50s,
+			SUM(CASE WHEN r >= 100 THEN 1 ELSE 0 END) AS total100s
+		FROM 
+			batting WHERE season = %d
+		GROUP BY 
+			player_id, player
+	),
+	highest_score AS (
+		SELECT 
+			player_id,
+			CONCAT(r, '/', b) AS highestScore,
+			ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY r DESC, b ASC) AS rn
+		FROM 
+			batting WHERE season = %d
+	)
+	SELECT 
+		a.player,
+		a.innings,
+		a.totalRuns,
+		a.totalBalls,
+		a.total4s,
+		a.total6s,
+		a.battingaverage,
+		a.strikeRate,
+		h.highestScore,
+		a.total50s,
+		a.total100s
+	FROM 
+		aggregated a
+	JOIN 
+		highest_score h 
+	ON 
+		a.player_id = h.player_id
+	WHERE 
+		h.rn = 1
+	ORDER BY 
+		a.battingaverage DESC
+	LIMIT 1;
+		`, season,
 			season,
 		)
 	}
 
-	return GetBattingOverall(query, db)
+	res := GetBattingOverall(query, db)
+
+	if season == 0 {
+		res.Team = GetPlayerTeam(res.Player, 0, db)
+	} else {
+		res.Team = GetPlayerTeam(res.Player, season, db)
+	}
+
+	return res
 }
