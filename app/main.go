@@ -26,7 +26,7 @@ func main() {
 	app.Get("/", handlers.HomepageHandler)
 	app.Get("/team", handlers.TeamsHandler)
 	app.Get("/player", handlers.PlayerHandler)
+	app.Get("/league", handlers.LeagueHandler)
 
 	log.Fatal(app.Listen(":8080"))
-
 }
