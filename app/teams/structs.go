@@ -4,7 +4,6 @@ type Team struct {
 	TeamID               int                `json:"id"`
 	TeamName             string             `json:"name"`
 	Season               int                `json:"season"`
-	Stadium              string             `json:"stadium"`
 	TeamHistory          History            `json:"history"`
 	TeamMatchRecord      MatchRecord        `json:"matchRecord"`
 	TeamPerformanceStats PerformanceStats   `json:"performanceStats"`
