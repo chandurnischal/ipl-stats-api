@@ -104,3 +104,6 @@ CREATE TABLE IF NOT EXISTS stadiums (
 );
 
 INSERT INTO stadiums (name, location) SELECT DISTINCT stadium AS name, venue AS location FROM matches;
+ALTER TABLE matches ADD COLUMN stadium_id INT;
+
+UPDATE matches JOIN stadiums ON matches.stadium LIKE CONCAT('%', stadiums.name, '%') SET matches.stadium_id = stadiums.id;

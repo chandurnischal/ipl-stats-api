@@ -1,0 +1,37 @@
+{
+    "stadiumStats": {
+      "matchesPlayed": {
+        "totalMatches": 0
+      },
+      "runsScored": {
+        "averageRunsPerMatch": 0.0,
+        "highestTeamTotal": 0,
+        "lowestTeamTotal": 0
+      },
+      "wicketsTaken": {
+        "averageWicketsPerMatch": 0.0,
+        "mostWicketsInInnings": 0
+      },
+      "battingStats": {
+        "averageScoreBattingFirst": 0.0,
+        "averageScoreBattingSecond": 0.0,
+        "numberOfCenturies": 0,
+        "numberOfHalfCenturies": 0,
+        "numberOfFours": 0,
+        "numberOfSixes": 0,
+        "highestIndividualScore": 0
+      },
+      "bowlingStats": {
+        "averageRunsConceded": 0.0,
+        "mostWicketsByBowler": 0,
+        "bestBowlingFiguresInInnings": {
+          "runs": 0,
+          "wickets": 0
+        }
+      },
+        "winPercentage": {
+          "battingFirst": 0.0,
+          "battingSecond": 0.0
+        }
+      }
+    }
